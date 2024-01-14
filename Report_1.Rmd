@@ -1,0 +1,146 @@
+---
+title: "Cyclistic_bike_share_analysis"
+author: "Sudharshan"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## The ask phase
+
+**The ask phase of the case study focuses on**
+
+  * The problem statement
+  * Effect of your insight on business decision
+  * Business task
+  * Stakeholders
+
+**Business task**
+
+Conduct data analysis to identify the difference between how casual riders and annual members use the bike
+
+**Stakeholder analysis**
+
+  * Responsible: Sudharsana Prasad
+  * Consult: Marketing team
+  * Accountable: Lily Moreno
+  * Inform: Executives
+
+## Prepare
+
+The prepare phase of the case study focuses on:
+  * Data source information
+    ** Location
+    ** How it is organized
+    ** ROCCC, integrity and biases
+    ** Licensing, privacy, accessibility and security
+    ** Relevance to business task
+    ** Problems associated with the data  
+
+**Date location**
+
+The data is stored at [Index of bucket](https://divvy-tripdata.s3.amazonaws.com/index.html). The data we are interested in is from *from: 2023/01 to: 2023/12*. The data is avilable in zip format and we have extracted all the required datasets to [trip_data_2024](file:///D:/DA%20tutorial/Case%20studies/Cyclistic%20data%20sources/trip_data_2024/)
+
+**Data cleaning and inspection**
+
+The first step is to read all the datasets into R
+
+```{r Loading packages}
+#install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+#install.packages("skimr", repos = "http://cran.us.r-project.org")
+#install.packages("DescTools", repos = "http://cran.us.r-project.org")
+#install.packages("dplyr", repos = "http://cran.us.r-project.org")
+#install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+library(tidyverse)
+library(skimr)
+library(DescTools)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r Loading datasets into R}
+parent_dir <- "D:\\DA tutorial\\Case studies\\Cyclistic data sources\\trip_data_2023\\"
+for(i in 202301:202312){
+  file_name <- paste0(parent_dir, i, "-divvy-tripdata\\", i, "-divvy-tripdata.csv")
+  assign(paste0("trip_", i), read_csv(file_name))
+}
+```
+**Inspecting data**
+The trip data is stored in 12 different tables, each table for every month in 2023. The tables are read into 12 different data frames from trip_202301 to trip_202312.  
+There are totally 13 columns and three different data types (Character, Double and Date time). The data frames are now combined into a single data frame trips_2023
+```{r Combine all data frames}
+trips_2023 <- rbind(trip_202301, trip_202302, trip_202303, trip_202304, trip_202305, trip_202306, trip_202307, trip_202308, trip_202309, trip_202310, trip_202311, trip_202312)
+```
+
+## Process
+
+Calculating how long the rides were for each ride in 2023.
+```{r Calculating ride_length}
+trips_2023 <- mutate(trips_2023, ride_length = trips_2023$ended_at - trips_2023$started_at)
+str(trips_2023)
+```
+Creating a column of day_of_week and removing incomplete observations
+```{r Create a column for day of the week}
+trips_2023 <- mutate(trips_2023, day_of_week = weekdays(trips_2023$started_at))
+str(trips_2023)
+trips_2023 <- na.omit(trips_2023)
+```
+Arranging the data frame in ascending order of started_at column
+```{r Arrage data frame in chronological order}
+trips_2023 <- arrange(trips_2023, started_at)
+```
+## Analyze
+
+Calculating mean, and max of ride_length
+```{r Mean and max of ride_length}
+mean(trips_2023$ride_length)
+max(trips_2023$ride_length)
+```
+Calculating the Mode of day_of_week
+```{r Calculating Mode of Day of the week}
+Mode(trips_2023$day_of_week) # Package used DescTools
+```
+
+### Calculations
+
+Calculate the average ride_length for members and casual riders for each month
+```{r Monthly average ride length calculation}
+trips_2023 %>% 
+  group_by(month(started_at), member_casual) %>% 
+  summarise(mean(ride_length))
+```
+Calculate the average ride_length for users by day_of_week.
+```{r Avergae ride lenght by day of the week}
+trips_2023 %>% 
+  group_by(month(started_at), member_casual, day_of_week) %>% 
+  summarize(mean(ride_length))
+```
+Calculate the number of rides for users by day_of_week
+```{r  Numer of rides by day of the week}
+rides_table <- trips_2023 %>% 
+  group_by(month(started_at), member_casual) %>%
+  count(member_casual)
+colnames(rides_table) <- c('month', 'member_type', 'num_of_rides')
+tibble(rides_table)
+```
+## Share
+
+### Visualization
+```{r Num of casual and member riders in 2023}
+ggplot(trips_2023) +
+  geom_bar(mapping = aes(x = member_casual, fill = day_of_week)) +
+  labs(title = "Casual and memeber riders count in 2023", subtitle = "Day of the week", x = "Type of rider", y = "Number of rides")
+```
+
+```{r Trend of causual and memeber riders in 2023}
+trips_2023 %>% ggplot(aes(x = fct_relevel(as.character(month(started_at), c("10", "11", "12"), after = 12)))) +
+  geom_bar() +
+  facet_wrap(~member_casual) +
+  labs(title = "Monthly rides", x = "Month", y = "number of rides" )
+```
+
+
+## Findings
+
+  * Casual rides use the bikes on weekends, while members use the bike mostly on weekdays
+  * The number of rides go up during May, June and July. The peak is in July and drops during the winter months
+  * The number of Members is more than the number of casual riders.
